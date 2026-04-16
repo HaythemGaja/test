@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GitRestore - PWA & Repo Manager</title>
+    <title>GitRestore Studio - PWA & Repo Manager</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <!-- Ace Editor -->
@@ -16,69 +16,57 @@
             --gh-dark: #0d1117;
             --gh-border: #30363d;
             --gh-blue: #58a6ff;
+            --gh-sidebar: #161b22;
         }
         body {
             background-color: var(--gh-dark);
             color: #c9d1d9;
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+            overflow: hidden;
         }
-        .sidebar {
-            background-color: #161b22;
-            border-right: 1px solid var(--gh-border);
-        }
-        .btn-primary {
-            background-color: #238636;
-            transition: background 0.2s;
-        }
-        .btn-primary:hover {
-            background-color: #2ea043;
-        }
-        .card {
-            background-color: #161b22;
-            border: 1px solid var(--gh-border);
-            border-radius: 6px;
-        }
-        /* Ace Editor height */
-        #editor {
-            width: 100%;
-            height: 500px;
-            border: 1px solid var(--gh-border);
-            border-radius: 4px;
-        }
-        .modal-overlay {
-            background: rgba(0,0,0,0.85);
-            backdrop-filter: blur(4px);
-        }
-        .file-item:hover .file-actions {
-            display: flex;
-        }
-        select, input {
-            color-scheme: dark;
-        }
-        /* Markdown Preview Styling */
-        #markdown-preview {
-            background: #0d1117;
-            padding: 2rem;
-            border: 1px solid var(--gh-border);
-            border-radius: 4px;
-        }
-        #markdown-preview h1 { border-bottom: 1px solid var(--gh-border); padding-bottom: 0.3em; font-size: 2em; font-weight: 600; margin-bottom: 16px; }
-        #markdown-preview h2 { border-bottom: 1px solid var(--gh-border); padding-bottom: 0.3em; font-size: 1.5em; font-weight: 600; margin-top: 24px; margin-bottom: 16px; }
-        #markdown-preview p { margin-bottom: 16px; line-height: 1.5; }
-        #markdown-preview code { background: rgba(110,118,129,0.4); padding: 0.2em 0.4em; border-radius: 6px; font-family: monospace; }
-        #markdown-preview pre { background: #161b22; padding: 16px; border-radius: 6px; overflow: auto; margin-bottom: 16px; }
+        .sidebar { background-color: var(--gh-sidebar); border-right: 1px solid var(--gh-border); }
+        .btn-primary { background-color: #238636; transition: background 0.2s; }
+        .btn-primary:hover { background-color: #2ea043; }
+        .btn-secondary { background-color: #21262d; border: 1px solid var(--gh-border); }
+        .btn-secondary:hover { background-color: #30363d; }
+        
+        .card { background-color: #161b22; border: 1px solid var(--gh-border); border-radius: 6px; }
+        
+        #editor { width: 100%; height: 500px; border: 1px solid var(--gh-border); border-radius: 4px; }
+        
+        .modal-overlay { background: rgba(0,0,0,0.85); backdrop-filter: blur(4px); }
+        .file-item:hover .file-actions { display: flex; }
+        
+        select, input, textarea { color-scheme: dark; }
+
+        /* Diff Highlighting */
+        .diff-added { background-color: rgba(46, 160, 67, 0.15); color: #7ee787; }
+        .diff-removed { background-color: rgba(248, 81, 73, 0.15); color: #ffa198; }
+        
+        /* Scrollbar */
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: var(--gh-dark); }
+        ::-webkit-scrollbar-thumb { background: #30363d; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: #484f58; }
+
+        .tab-active { border-bottom: 2px solid var(--gh-blue); color: var(--gh-blue); font-weight: 600; }
     </style>
 </head>
 <body class="min-h-screen flex flex-col">
 
     <!-- Header -->
-    <header class="border-b border-[#30363d] p-4 flex justify-between items-center bg-[#161b22]">
+    <header class="border-b border-[#30363d] p-3 flex justify-between items-center bg-[#161b22] z-50">
         <div class="flex items-center gap-3">
-            <i class="fab fa-github text-3xl"></i>
-            <h1 class="text-xl font-bold tracking-tight">GitRestore <span class="text-xs font-normal text-gray-500 ml-2">PWA Studio</span></h1>
+            <i class="fab fa-github text-2xl text-white"></i>
+            <h1 class="text-lg font-bold tracking-tight">GitRestore <span class="text-[10px] bg-blue-600/20 text-blue-400 px-1.5 py-0.5 rounded ml-2 uppercase">Studio</span></h1>
         </div>
-        <div id="user-info" class="hidden items-center gap-3">
-            <span id="username" class="text-sm font-medium"></span>
+        <div id="user-info" class="hidden items-center gap-4">
+            <div class="relative group">
+                <button id="global-search-btn" onclick="toggleGlobalSearch()" class="text-gray-400 hover:text-white transition">
+                    <i class="fas fa-search"></i>
+                </button>
+            </div>
+            <span id="username" class="text-sm font-medium opacity-80"></span>
             <button onclick="logout()" class="text-xs text-red-400 hover:underline">Logout</button>
         </div>
     </header>
@@ -88,233 +76,265 @@
         
         <!-- Auth View -->
         <div id="auth-view" class="flex-1 flex flex-col items-center justify-center p-6">
-            <div class="card p-8 max-w-md w-full text-center shadow-2xl">
-                <i class="fas fa-key text-4xl mb-4 text-blue-400"></i>
-                <h2 class="text-2xl font-bold mb-2">Connect to GitHub</h2>
-                <p class="text-gray-400 text-sm mb-6">Enter your Personal Access Token (PAT) with 'repo' permissions.</p>
-                <input type="password" id="pat-token" placeholder="ghp_xxxxxxxxxxxx" class="w-full bg-[#0d1117] border border-[#30363d] rounded p-2 mb-4 focus:outline-none focus:border-blue-500">
-                <button onclick="login()" id="login-btn" class="btn-primary w-full py-2 rounded font-semibold text-white">
-                    Authenticate
+            <div class="card p-8 max-w-md w-full text-center shadow-2xl border-blue-500/20">
+                <i class="fas fa-terminal text-4xl mb-4 text-blue-500"></i>
+                <h2 class="text-2xl font-bold mb-2">Initialize Session</h2>
+                <p class="text-gray-400 text-sm mb-6">Connect via Personal Access Token to manage your GitHub ecosystem.</p>
+                <input type="password" id="pat-token" placeholder="ghp_xxxxxxxxxxxx" class="w-full bg-[#0d1117] border border-[#30363d] rounded p-2.5 mb-4 focus:outline-none focus:border-blue-500 transition-all">
+                <button onclick="login()" id="login-btn" class="btn-primary w-full py-2.5 rounded font-bold text-white shadow-lg shadow-green-900/20">
+                    Connect to GitHub
                 </button>
+                <p class="mt-4 text-[10px] text-gray-500">Scopes required: <code>repo</code>, <code>workflow</code>, <code>admin:repo_hook</code></p>
             </div>
         </div>
 
         <!-- Dashboard View -->
         <div id="dashboard-view" class="hidden flex-1 flex flex-row overflow-hidden">
+            
             <!-- Sidebar: Repos -->
-            <aside class="sidebar w-72 flex flex-col">
-                <div class="p-4 border-b border-[#30363d] flex justify-between items-center">
-                    <h3 class="font-bold flex items-center gap-2 text-sm">
-                        <i class="fas fa-book"></i> Repos
-                    </h3>
-                    <button onclick="showModal('create-repo-modal')" class="text-[10px] bg-[#21262d] border border-[#30363d] px-2 py-1 rounded hover:bg-[#30363d] text-green-400 font-bold">
+            <aside class="sidebar w-64 flex flex-col shrink-0">
+                <div class="p-3 border-b border-[#30363d] flex justify-between items-center bg-[#161b22]">
+                    <h3 class="font-bold text-xs text-gray-400 uppercase tracking-widest">Repositories</h3>
+                    <button onclick="showModal('create-repo-modal')" class="text-[10px] text-green-500 hover:text-green-400 font-bold">
                         <i class="fas fa-plus"></i> NEW
                     </button>
                 </div>
-                <div class="p-2">
-                    <input type="text" id="repo-search" onkeyup="filterRepos()" placeholder="Filter repositories..." class="w-full bg-[#0d1117] border border-[#30363d] text-xs rounded p-1.5 focus:outline-none">
+                <div class="p-2 bg-[#0d1117]">
+                    <div class="relative">
+                        <i class="fas fa-filter absolute left-2 top-2.5 text-[10px] text-gray-500"></i>
+                        <input type="text" id="repo-search" onkeyup="filterRepos()" placeholder="Filter..." class="w-full bg-[#161b22] border border-[#30363d] text-xs rounded pl-7 pr-2 py-2 focus:outline-none focus:border-blue-500">
+                    </div>
                 </div>
                 <div id="repo-list" class="flex-1 overflow-y-auto p-2 space-y-1">
-                    <div class="text-center py-4 text-gray-500 text-xs">Loading repositories...</div>
+                    <div class="text-center py-10 text-gray-500 text-[10px]">Loading...</div>
                 </div>
             </aside>
 
             <!-- Main Panel -->
             <section class="flex-1 flex flex-col overflow-hidden bg-[#0d1117]">
-                <div class="p-4 border-b border-[#30363d] flex justify-between items-center bg-[#161b22]">
+                
+                <!-- Toolbar -->
+                <div class="p-3 border-b border-[#30363d] flex justify-between items-center bg-[#161b22]">
                     <div id="breadcrumbs" class="flex items-center gap-3 text-sm flex-wrap">
-                        <span class="text-blue-400 font-bold truncate max-w-[200px]" id="current-repo-name">Select a repository</span>
+                        <span class="text-blue-400 font-bold truncate max-w-[150px]" id="current-repo-name">Select Repository</span>
                         
-                        <!-- Branch Selector -->
-                        <div id="branch-selector-container" class="hidden flex items-center gap-2 bg-[#21262d] px-2 py-1 rounded border border-[#30363d]">
-                            <i class="fas fa-code-branch text-xs text-gray-500"></i>
-                            <select id="branch-select" onchange="switchBranch()" class="bg-transparent text-xs border-none outline-none cursor-pointer">
-                                <!-- Branches injected here -->
-                            </select>
+                        <div id="branch-selector-container" class="hidden flex items-center gap-2 bg-[#0d1117] px-2 py-1 rounded border border-[#30363d]">
+                            <i class="fas fa-code-branch text-[10px] text-gray-500"></i>
+                            <select id="branch-select" onchange="switchBranch()" class="bg-transparent text-[11px] border-none outline-none cursor-pointer font-medium"></select>
                         </div>
-
-                        <button id="repo-settings-trigger" onclick="showRepoSettings()" class="hidden text-gray-500 hover:text-white" title="Repo Settings">
-                            <i class="fas fa-cog"></i>
-                        </button>
                     </div>
-                    <div id="repo-actions" class="hidden flex gap-2">
-                         <button onclick="showPagesSettings()" class="text-xs bg-[#21262d] border border-[#30363d] px-3 py-1.5 rounded hover:bg-[#30363d] flex items-center gap-2">
-                            <i class="fas fa-rocket text-orange-400"></i> Pages & PWA
-                         </button>
+
+                    <div id="repo-nav-tabs" class="hidden flex gap-1">
+                        <button onclick="switchViewTab('explorer')" id="vtab-explorer" class="text-xs px-3 py-1.5 rounded hover:bg-[#30363d] transition bg-[#30363d] text-white">Files</button>
+                        <button onclick="switchViewTab('issues')" id="vtab-issues" class="text-xs px-3 py-1.5 rounded hover:bg-[#30363d] transition text-gray-400">Issues</button>
+                        <button onclick="switchViewTab('releases')" id="vtab-releases" class="text-xs px-3 py-1.5 rounded hover:bg-[#30363d] transition text-gray-400">Releases</button>
+                        <button onclick="showPagesSettings()" class="text-xs px-3 py-1.5 rounded hover:bg-[#30363d] transition text-orange-400">Pages/PWA</button>
+                        <button onclick="showRepoSettings()" class="text-xs px-3 py-1.5 rounded hover:bg-[#30363d] transition text-gray-500"><i class="fas fa-cog"></i></button>
                     </div>
                 </div>
 
                 <div class="flex-1 flex flex-row overflow-hidden relative">
-                    <!-- File Explorer -->
-                    <div class="w-80 border-r border-[#30363d] flex flex-col bg-[#0d1117]">
-                        <div class="p-3 flex justify-between items-center border-b border-[#30363d] bg-[#161b22]/50">
-                            <span class="text-[10px] font-bold text-gray-500 uppercase tracking-widest">File Explorer</span>
-                            <button id="new-file-btn" onclick="showModal('new-file-modal')" class="text-[10px] bg-[#21262d] px-2 py-0.5 rounded text-blue-400 hidden">
-                                <i class="fas fa-file-plus mr-1"></i> New File
-                            </button>
+                    
+                    <!-- View: Explorer (Default) -->
+                    <div id="view-explorer" class="flex flex-1 overflow-hidden">
+                        <!-- File Tree -->
+                        <div class="w-72 border-r border-[#30363d] flex flex-col bg-[#0d1117]">
+                            <div class="p-3 flex justify-between items-center border-b border-[#30363d] bg-[#161b22]/30">
+                                <span class="text-[9px] font-bold text-gray-500 uppercase">Explorer</span>
+                                <button id="new-file-btn" onclick="showModal('new-file-modal')" class="text-[10px] text-blue-400 hidden hover:underline">
+                                    <i class="fas fa-file-plus mr-1"></i> New
+                                </button>
+                            </div>
+                            <div class="flex-1 overflow-y-auto p-2" id="file-explorer"></div>
                         </div>
-                        <div class="flex-1 overflow-y-auto p-2" id="file-explorer">
-                            <div class="text-gray-500 text-center mt-10 text-sm italic">Select a repository to explore files</div>
+
+                        <!-- Editor Area -->
+                        <div class="flex-1 overflow-y-auto relative" id="editor-pane">
+                            <div id="file-details" class="p-4 hidden">
+                                <div class="flex justify-between items-center mb-4">
+                                    <h2 id="view-file-name" class="text-sm font-bold truncate pr-4 text-gray-300"></h2>
+                                    <div class="flex items-center gap-3">
+                                        <button id="raw-file-btn" class="text-[10px] text-gray-500 hover:text-blue-400">RAW</button>
+                                        <button onclick="closeFileView()" class="text-gray-500 hover:text-white"><i class="fas fa-times text-xs"></i></button>
+                                    </div>
+                                </div>
+                                
+                                <div class="flex border-b border-[#30363d] mb-4 gap-6">
+                                    <button onclick="switchEditorTab('edit')" id="etab-edit" class="pb-2 text-xs font-medium tab-active">Edit</button>
+                                    <button onclick="switchEditorTab('diff')" id="etab-diff" class="pb-2 text-xs font-medium text-gray-500">Changes (Diff)</button>
+                                    <button onclick="switchEditorTab('preview')" id="etab-preview" class="hidden pb-2 text-xs font-medium text-gray-500">Preview</button>
+                                    <button onclick="switchEditorTab('history')" id="etab-history" class="pb-2 text-xs font-medium text-gray-500">History</button>
+                                </div>
+
+                                <div id="editor-container">
+                                    <div id="editor"></div>
+                                    <div class="mt-4 flex flex-col gap-3">
+                                        <input type="text" id="commit-msg" placeholder="Summarize changes..." class="bg-[#161b22] border border-[#30363d] rounded p-2 text-xs focus:border-blue-500 outline-none">
+                                        <div class="flex justify-between items-center">
+                                            <span class="text-[10px] text-gray-500" id="file-stats">Ready</span>
+                                            <button onclick="saveChanges()" class="btn-primary px-5 py-1.5 rounded font-bold text-xs text-white">Commit to <span class="current-branch-label">...</span></button>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div id="diff-container" class="hidden">
+                                    <div id="diff-view" class="font-mono text-[12px] whitespace-pre p-4 border border-[#30363d] rounded bg-[#0d1117] max-h-[600px] overflow-auto"></div>
+                                </div>
+
+                                <div id="preview-container" class="hidden prose prose-invert max-w-none bg-[#0d1117] p-6 border border-[#30363d] rounded"></div>
+
+                                <div id="history-container" class="hidden space-y-2"></div>
+                            </div>
+                            <div id="empty-editor-state" class="flex flex-col items-center justify-center h-full text-gray-600 opacity-50">
+                                <i class="fas fa-code text-5xl mb-4"></i>
+                                <p class="text-sm">Select a file to start editing</p>
+                            </div>
                         </div>
                     </div>
 
-                    <!-- Main Display Area -->
-                    <div class="flex-1 overflow-y-auto bg-[#0d1117] relative">
-                        
-                        <!-- File Details (Editor) -->
-                        <div class="p-6 hidden" id="file-details">
-                            <div class="flex justify-between items-center mb-6">
-                                <h2 id="view-file-name" class="text-xl font-bold flex items-center gap-2 truncate pr-4"></h2>
+                    <!-- View: Issues -->
+                    <div id="view-issues" class="hidden flex-1 overflow-y-auto p-6 bg-[#0d1117]">
+                        <div class="flex justify-between items-center mb-6 border-b border-[#30363d] pb-4">
+                            <h2 class="text-xl font-bold flex items-center gap-2">
+                                <i class="fas fa-exclamation-circle text-green-500"></i> Issues
+                            </h2>
+                            <button onclick="showModal('new-issue-modal')" class="btn-primary px-4 py-1.5 rounded text-xs font-bold text-white">New Issue</button>
+                        </div>
+                        <div id="issue-list" class="space-y-3"></div>
+                    </div>
+
+                    <!-- View: Releases -->
+                    <div id="view-releases" class="hidden flex-1 overflow-y-auto p-6 bg-[#0d1117]">
+                        <div class="flex justify-between items-center mb-6 border-b border-[#30363d] pb-4">
+                            <h2 class="text-xl font-bold flex items-center gap-2">
+                                <i class="fas fa-tag text-purple-400"></i> Releases & Tags
+                            </h2>
+                            <button onclick="showModal('new-release-modal')" class="btn-primary px-4 py-1.5 rounded text-xs font-bold text-white">Draft Release</button>
+                        </div>
+                        <div id="release-list" class="space-y-4"></div>
+                    </div>
+
+                    <!-- View: Pages & PWA Settings -->
+                    <div id="view-pages" class="hidden flex-1 overflow-y-auto p-6 bg-[#0d1117]">
+                        <div class="flex justify-between items-center mb-6">
+                            <h2 class="text-xl font-bold flex items-center gap-2"><i class="fas fa-rocket text-orange-400"></i> Pages & PWA</h2>
+                            <button onclick="switchViewTab('explorer')" class="text-gray-500 hover:text-white"><i class="fas fa-times"></i></button>
+                        </div>
+                        <div id="pages-status-box" class="card p-4 mb-6 border-blue-500/20 bg-blue-900/5"></div>
+                        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                            <div class="card p-5">
+                                <h3 class="font-bold mb-4 text-sm flex items-center gap-2 text-blue-400"><i class="fas fa-globe"></i> Deployment Source</h3>
+                                <div class="space-y-4">
+                                    <div class="grid grid-cols-2 gap-3">
+                                        <div>
+                                            <label class="text-[10px] text-gray-500 block mb-1">Branch</label>
+                                            <select id="pages-branch" class="w-full bg-[#0d1117] border border-[#30363d] rounded p-2 text-xs"></select>
+                                        </div>
+                                        <div>
+                                            <label class="text-[10px] text-gray-500 block mb-1">Path</label>
+                                            <select id="pages-path" class="w-full bg-[#0d1117] border border-[#30363d] rounded p-2 text-xs">
+                                                <option value="/">/ (root)</option>
+                                                <option value="/docs">/docs</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <button onclick="savePagesConfig()" id="save-pages-btn" class="btn-primary w-full py-2 rounded text-xs font-bold">Update Config</button>
+                                </div>
+                            </div>
+                            <div class="card p-5">
+                                <h3 class="font-bold mb-4 text-sm flex items-center gap-2 text-purple-400"><i class="fas fa-tools"></i> PWA Studio</h3>
+                                <div class="space-y-2">
+                                    <button onclick="generatePWAFile('manifest')" class="w-full text-left bg-[#0d1117] border border-[#30363d] p-3 rounded hover:border-purple-500 transition">
+                                        <div class="text-xs font-bold">manifest.json</div>
+                                        <div class="text-[10px] text-gray-500">Set identity, colors, and icons.</div>
+                                    </button>
+                                    <button onclick="generatePWAFile('sw')" class="w-full text-left bg-[#0d1117] border border-[#30363d] p-3 rounded hover:border-purple-500 transition">
+                                        <div class="text-xs font-bold">sw.js (Service Worker)</div>
+                                        <div class="text-[10px] text-gray-500">Enable offline functionality.</div>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- View: Repo Settings -->
+                    <div id="view-repo-settings" class="hidden flex-1 overflow-y-auto p-6 bg-[#0d1117]">
+                        <h2 class="text-xl font-bold mb-6">General Settings</h2>
+                        <div class="max-w-xl space-y-6">
+                            <div class="card p-5">
+                                <h3 class="font-bold mb-1 text-sm">Rename Repository</h3>
+                                <p class="text-[11px] text-gray-500 mb-4">Updates the slug of the repository.</p>
                                 <div class="flex gap-2">
-                                    <button id="raw-file-btn" target="_blank" class="text-xs text-gray-400 hover:text-blue-400 px-2">Raw</button>
-                                    <button onclick="closeFileView()" class="text-gray-500 hover:text-white"><i class="fas fa-times"></i></button>
+                                    <input type="text" id="rename-repo-input" class="flex-1 bg-[#0d1117] border border-[#30363d] rounded p-2 text-xs">
+                                    <button onclick="renameRepository()" class="btn-secondary px-4 py-2 rounded text-xs font-bold">Rename</button>
                                 </div>
                             </div>
-                            <div class="flex border-b border-[#30363d] mb-4">
-                                <button onclick="switchTab('edit')" id="tab-edit" class="px-4 py-2 border-b-2 border-blue-500 text-blue-400 font-medium text-sm">Edit</button>
-                                <button onclick="switchTab('preview')" id="tab-preview" class="hidden px-4 py-2 text-gray-400 hover:text-white font-medium text-sm">Preview</button>
-                                <button onclick="switchTab('history')" id="tab-history" class="px-4 py-2 text-gray-400 hover:text-white font-medium text-sm">History</button>
-                            </div>
-
-                            <!-- Ace Editor Container -->
-                            <div id="content-edit">
-                                <div id="editor"></div>
-                                <div class="flex items-end gap-3 mt-4">
-                                    <div class="flex-1">
-                                        <label class="text-xs text-gray-400 block mb-1">Commit Message</label>
-                                        <input type="text" id="commit-msg" placeholder="Update file" class="w-full bg-[#161b22] border border-[#30363d] rounded p-2 text-sm focus:border-blue-500 focus:outline-none">
-                                    </div>
-                                    <button onclick="saveChanges()" class="btn-primary px-6 py-2 rounded font-semibold h-[38px] text-sm">Commit Changes</button>
-                                </div>
-                            </div>
-
-                            <!-- Preview Container -->
-                            <div id="content-preview" class="hidden">
-                                <div id="markdown-preview" class="prose prose-invert max-w-none"></div>
-                            </div>
-
-                            <div id="content-history" class="hidden space-y-3"></div>
-                        </div>
-
-                        <!-- Pages & PWA Settings -->
-                        <div class="p-6 hidden" id="pages-settings">
-                            <div class="flex justify-between items-center mb-6">
-                                <h2 class="text-xl font-bold flex items-center gap-2">
-                                    <i class="fas fa-rocket text-orange-400"></i> Pages & PWA Tools
-                                </h2>
-                                <button onclick="closePagesView()" class="text-gray-500 hover:text-white"><i class="fas fa-times"></i></button>
-                            </div>
-                            
-                            <div id="pages-status-box" class="card p-4 mb-6 border-blue-500/30 bg-blue-900/10">
-                                <p class="text-sm">Checking deployment status...</p>
-                            </div>
-
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <!-- Deployment -->
-                                <div class="card p-6">
-                                    <h3 class="font-bold mb-4 flex items-center gap-2 text-blue-400"><i class="fas fa-globe"></i> Deployment Source</h3>
-                                    <div class="space-y-4">
-                                        <div class="grid grid-cols-2 gap-3">
-                                            <div>
-                                                <label class="text-xs text-gray-400 block mb-1">Source Branch</label>
-                                                <select id="pages-branch" class="w-full bg-[#0d1117] border border-[#30363d] rounded p-2 text-sm">
-                                                    <!-- Injected branches -->
-                                                </select>
-                                            </div>
-                                            <div>
-                                                <label class="text-xs text-gray-400 block mb-1">Path</label>
-                                                <select id="pages-path" class="w-full bg-[#0d1117] border border-[#30363d] rounded p-2 text-sm">
-                                                    <option value="/">/ (root)</option>
-                                                    <option value="/docs">/docs</option>
-                                                </select>
-                                            </div>
-                                        </div>
-                                        <div>
-                                            <label class="text-xs text-gray-400 block mb-1">Custom Domain</label>
-                                            <input type="text" id="pages-custom-domain" placeholder="None" class="w-full bg-[#0d1117] border border-[#30363d] rounded p-2 text-sm">
-                                        </div>
-                                        <button onclick="savePagesConfig()" id="save-pages-btn" class="btn-primary w-full py-2 rounded text-sm font-semibold mt-2">
-                                            Update Pages Settings
-                                        </button>
-                                    </div>
-                                </div>
-
-                                <!-- PWA Utilities -->
-                                <div class="card p-6 border-purple-500/20">
-                                    <h3 class="font-bold mb-4 flex items-center gap-2 text-purple-400"><i class="fas fa-mobile-alt"></i> PWA Toolkit</h3>
-                                    <p class="text-xs text-gray-400 mb-4 text-xs italic">Files will be created in current folder: <span class="text-white" id="pwa-target-dir">/root</span></p>
-                                    <div class="space-y-3">
-                                        <button onclick="generatePWAFile('manifest')" class="w-full text-left bg-[#21262d] border border-[#30363d] p-3 rounded hover:border-purple-500 transition group">
-                                            <div class="font-semibold text-sm group-hover:text-purple-400">Generate manifest.json</div>
-                                            <div class="text-[10px] text-gray-500">Configure app metadata</div>
-                                        </button>
-                                        <button onclick="generatePWAFile('sw')" class="w-full text-left bg-[#21262d] border border-[#30363d] p-3 rounded hover:border-purple-500 transition group">
-                                            <div class="font-semibold text-sm group-hover:text-purple-400">Generate Service Worker</div>
-                                            <div class="text-[10px] text-gray-500">Basic offline caching (sw.js)</div>
-                                        </button>
-                                        <button onclick="generatePWAFile('index')" class="w-full text-left bg-[#21262d] border border-[#30363d] p-3 rounded hover:border-purple-500 transition group">
-                                            <div class="font-semibold text-sm group-hover:text-purple-400">Generate index.html</div>
-                                            <div class="text-[10px] text-gray-500">PWA registration boilerplate</div>
-                                        </button>
-                                    </div>
-                                </div>
+                            <div class="card p-5 border-red-900/40 bg-red-900/5">
+                                <h3 class="font-bold mb-1 text-sm text-red-500">Delete Repository</h3>
+                                <p class="text-[11px] text-gray-500 mb-4">This action is irreversible.</p>
+                                <button onclick="promptDeleteRepo()" class="bg-red-600/20 text-red-500 border border-red-500/40 px-4 py-2 rounded text-xs font-bold hover:bg-red-600 hover:text-white">Delete Repository</button>
                             </div>
                         </div>
-
-                        <!-- Repo Settings View -->
-                        <div class="p-6 hidden" id="repo-settings-view">
-                            <div class="flex justify-between items-center mb-6">
-                                <h2 class="text-xl font-bold flex items-center gap-2">
-                                    <i class="fas fa-cog text-gray-400"></i> Repository Settings
-                                </h2>
-                                <button onclick="closeRepoSettings()" class="text-gray-500 hover:text-white"><i class="fas fa-times"></i></button>
-                            </div>
-                            
-                            <div class="space-y-6 max-w-2xl">
-                                <div class="card p-6">
-                                    <h3 class="font-bold mb-1">Rename Repository</h3>
-                                    <p class="text-xs text-gray-400 mb-4">Renaming will change the repository URL.</p>
-                                    <div class="flex gap-2">
-                                        <input type="text" id="rename-repo-input" class="flex-1 bg-[#0d1117] border border-[#30363d] rounded p-2 text-sm">
-                                        <button onclick="renameRepository()" class="bg-gray-700 px-4 py-2 rounded text-sm hover:bg-gray-600 transition">Rename</button>
-                                    </div>
-                                </div>
-
-                                <div class="card p-6 border-red-900/50 bg-red-900/5">
-                                    <h3 class="font-bold mb-1 text-red-500">Danger Zone</h3>
-                                    <p class="text-xs text-gray-400 mb-6">These actions are permanent and cannot be undone.</p>
-                                    
-                                    <div class="p-4 border border-red-900/50 rounded flex justify-between items-center">
-                                        <div>
-                                            <div class="font-bold text-sm">Delete this repository</div>
-                                            <div class="text-[10px] text-gray-500">Once you delete a repository, there is no going back.</div>
-                                        </div>
-                                        <button onclick="promptDeleteRepo()" class="bg-red-600/20 text-red-500 border border-red-500/50 px-4 py-1.5 rounded text-xs font-bold hover:bg-red-600 hover:text-white transition">Delete</button>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
                     </div>
+
                 </div>
             </section>
         </div>
     </main>
 
-    <!-- Modals (Unchanged Structure) -->
+    <!-- Global Search Overlay -->
+    <div id="global-search-overlay" class="fixed inset-0 modal-overlay hidden z-[100] p-10 flex flex-col items-center">
+        <div class="w-full max-w-3xl card p-6 shadow-2xl">
+            <div class="flex items-center gap-3 mb-6">
+                <i class="fas fa-search text-blue-500"></i>
+                <input type="text" id="global-search-input" onkeyup="if(event.key==='Enter') executeGlobalSearch()" placeholder="Search code in current repo..." class="flex-1 bg-transparent text-xl outline-none">
+                <button onclick="toggleGlobalSearch()" class="text-gray-500"><i class="fas fa-times"></i></button>
+            </div>
+            <div id="search-results" class="max-h-[60vh] overflow-y-auto space-y-2 text-sm">
+                <p class="text-gray-500 italic text-center py-10">Type and press Enter to search...</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modals -->
     <div id="create-repo-modal" class="fixed inset-0 modal-overlay hidden items-center justify-center p-4 z-[110]">
-        <div class="card p-6 max-w-md w-full shadow-2xl">
-            <h3 class="text-xl font-bold mb-4">Create New Repository</h3>
+        <div class="card p-6 max-w-md w-full">
+            <h3 class="text-xl font-bold mb-4">Create Repository</h3>
             <div class="space-y-4">
-                <input type="text" id="new-repo-name" placeholder="Repository Name" class="w-full bg-[#0d1117] border border-[#30363d] rounded p-2 text-sm focus:border-blue-500 outline-none">
-                <input type="text" id="new-repo-desc" placeholder="Description (Optional)" class="w-full bg-[#0d1117] border border-[#30363d] rounded p-2 text-sm">
-                <div class="flex items-center gap-2">
+                <input type="text" id="new-repo-name" placeholder="Name" class="w-full bg-[#0d1117] border border-[#30363d] rounded p-2 text-sm outline-none">
+                <textarea id="new-repo-desc" placeholder="Description" class="w-full bg-[#0d1117] border border-[#30363d] rounded p-2 text-sm h-20 outline-none"></textarea>
+                <div class="flex items-center gap-2 text-sm">
                     <input type="checkbox" id="new-repo-private">
-                    <label for="new-repo-private" class="text-sm">Private Repository</label>
+                    <label for="new-repo-private">Private</label>
                 </div>
-                <div class="flex justify-end gap-3 mt-4">
-                    <button onclick="hideModal('create-repo-modal')" class="px-4 py-2 text-gray-400 text-sm">Cancel</button>
-                    <button onclick="createRepo()" id="confirm-create-btn" class="btn-primary px-4 py-2 rounded text-sm font-semibold">Create Repository</button>
+                <div class="flex justify-end gap-3 pt-4">
+                    <button onclick="hideModal('create-repo-modal')" class="text-gray-500 text-sm">Cancel</button>
+                    <button onclick="createRepo()" class="btn-primary px-4 py-2 rounded text-sm font-bold">Create</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="new-file-modal" class="fixed inset-0 modal-overlay hidden items-center justify-center p-4 z-[110]">
+        <div class="card p-6 max-w-sm w-full">
+            <h3 class="text-lg font-bold mb-4">New File</h3>
+            <input type="text" id="new-filename" placeholder="path/to/file.ext" class="w-full bg-[#0d1117] border border-[#30363d] rounded p-2 text-sm mb-4 outline-none">
+            <div class="flex justify-end gap-3">
+                <button onclick="hideModal('new-file-modal')" class="text-gray-500 text-sm">Cancel</button>
+                <button onclick="createFile()" class="btn-primary px-4 py-2 rounded text-sm font-bold">Create</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="new-issue-modal" class="fixed inset-0 modal-overlay hidden items-center justify-center p-4 z-[110]">
+        <div class="card p-6 max-w-lg w-full">
+            <h3 class="text-lg font-bold mb-4">New Issue</h3>
+            <div class="space-y-4">
+                <input type="text" id="new-issue-title" placeholder="Title" class="w-full bg-[#0d1117] border border-[#30363d] rounded p-2 text-sm outline-none">
+                <textarea id="new-issue-body" placeholder="Description..." class="w-full bg-[#0d1117] border border-[#30363d] rounded p-2 text-sm h-40 outline-none"></textarea>
+                <div class="flex justify-end gap-3">
+                    <button onclick="hideModal('new-issue-modal')" class="text-gray-500 text-sm">Cancel</button>
+                    <button onclick="createIssue()" class="btn-primary px-4 py-2 rounded text-sm font-bold">Submit Issue</button>
                 </div>
             </div>
         </div>
@@ -322,49 +342,17 @@
 
     <div id="delete-repo-modal" class="fixed inset-0 modal-overlay hidden items-center justify-center p-4 z-[120]">
         <div class="card p-6 max-w-md w-full border-red-600">
-            <h3 class="text-xl font-bold mb-2 text-red-500">Confirm Deletion</h3>
-            <p class="text-xs mb-2 leading-relaxed">Type <strong class="text-white" id="delete-confirm-text"></strong> to delete.</p>
+            <h3 class="text-xl font-bold mb-2 text-red-500">Verify Deletion</h3>
+            <p class="text-xs mb-4 text-gray-400">Type <strong class="text-white" id="delete-confirm-text"></strong> to proceed.</p>
             <input type="text" id="delete-repo-confirm-input" class="w-full bg-red-900/10 border border-red-900/50 rounded p-2 text-sm mb-4 outline-none">
-            <button onclick="deleteRepository()" id="final-delete-btn" class="w-full bg-red-600 py-2 rounded text-sm font-bold text-white opacity-50 cursor-not-allowed" disabled>Delete Repository</button>
-        </div>
-    </div>
-
-    <div id="new-file-modal" class="fixed inset-0 modal-overlay hidden items-center justify-center p-4 z-[110]">
-        <div class="card p-6 max-w-sm w-full">
-            <h3 class="text-lg font-bold mb-4">Create New File</h3>
-            <input type="text" id="new-filename" placeholder="index.html" class="w-full bg-[#0d1117] border border-[#30363d] rounded p-2 text-sm mb-4 outline-none">
-            <div class="flex justify-end gap-3">
-                <button onclick="hideModal('new-file-modal')" class="px-4 py-2 text-gray-400 text-sm">Cancel</button>
-                <button onclick="createFile()" class="btn-primary px-4 py-2 rounded text-sm font-semibold">Create File</button>
-            </div>
-        </div>
-    </div>
-
-    <div id="rename-file-modal" class="fixed inset-0 modal-overlay hidden items-center justify-center p-4 z-[110]">
-        <div class="card p-6 max-w-sm w-full">
-            <h3 class="text-lg font-bold mb-4">Rename File</h3>
-            <input type="text" id="rename-filename" class="w-full bg-[#0d1117] border border-[#30363d] rounded p-2 text-sm mb-4">
-            <div class="flex justify-end gap-3">
-                <button onclick="hideModal('rename-file-modal')" class="px-4 py-2 text-gray-400 text-sm">Cancel</button>
-                <button onclick="renameFile()" class="bg-blue-600 px-4 py-2 rounded text-sm font-semibold text-white">Rename</button>
-            </div>
-        </div>
-    </div>
-
-    <div id="restore-modal" class="fixed inset-0 modal-overlay hidden items-center justify-center p-4 z-[110]">
-        <div class="card p-6 max-w-lg w-full">
-            <h3 class="text-xl font-bold mb-2">Confirm Restore</h3>
-            <input type="text" id="restore-commit-msg" class="w-full bg-[#0d1117] border border-[#30363d] rounded p-2 text-sm mb-4">
-            <div class="flex justify-end gap-3">
-                <button onclick="hideModal('restore-modal')" class="px-4 py-2 text-gray-400">Cancel</button>
-                <button id="confirm-restore-btn" class="bg-blue-600 px-4 py-2 rounded text-white font-semibold">Restore Now</button>
-            </div>
+            <button onclick="deleteRepository()" id="final-delete-btn" class="w-full bg-red-600 py-2 rounded text-sm font-bold text-white opacity-50" disabled>Confirm Delete</button>
         </div>
     </div>
 
     <div id="toast-container" class="fixed bottom-4 right-4 z-[200] flex flex-col gap-2"></div>
 
     <script>
+        // State
         let token = '';
         let user = null;
         let repos = [];
@@ -374,10 +362,9 @@
         let currentFileSha = '';
         let currentFileData = '';
         let currentBranch = '';
-        let branches = [];
         let editor;
 
-        // Initialize Ace
+        // Init
         window.onload = () => {
             editor = ace.edit("editor");
             editor.setTheme("ace/theme/one_dark");
@@ -386,7 +373,8 @@
                 fontSize: "13px",
                 enableBasicAutocompletion: true,
                 useSoftTabs: true,
-                tabSize: 2
+                tabSize: 2,
+                scrollPastEnd: 0.5
             });
 
             const savedToken = sessionStorage.getItem('gh_token');
@@ -396,50 +384,77 @@
             }
         };
 
+        // Utility: API Wrapper with Backoff
+        async function ghApi(endpoint, options = {}, retries = 5) {
+            const baseUrl = 'https://api.github.com';
+            const headers = {
+                'Authorization': `token ${token}`,
+                'Accept': 'application/vnd.github.v3+json',
+                ...options.headers
+            };
+
+            for (let i = 0; i <= retries; i++) {
+                try {
+                    const res = await fetch(`${baseUrl}${endpoint}`, { ...options, headers });
+                    if (res.status === 403 && res.headers.get('x-ratelimit-remaining') === '0') {
+                        throw new Error('Rate limit exceeded');
+                    }
+                    return res;
+                } catch (err) {
+                    if (i === retries) throw err;
+                    await new Promise(r => setTimeout(r, Math.pow(2, i) * 1000));
+                }
+            }
+        }
+
+        // Toasts
         function showToast(message, type = 'info') {
             const container = document.getElementById('toast-container');
             const toast = document.createElement('div');
-            const bgColor = type === 'error' ? 'bg-red-600' : type === 'success' ? 'bg-green-600' : 'bg-blue-600';
-            toast.className = `${bgColor} text-white px-4 py-3 rounded shadow-lg flex items-center gap-2 transition-all duration-300 transform translate-y-0 text-sm`;
-            toast.innerHTML = `<i class="fas ${type === 'error' ? 'fa-exclamation-circle' : 'fa-check-circle'}"></i> <span>${message}</span>`;
+            const colors = { error: 'bg-red-600', success: 'bg-green-600', info: 'bg-blue-600' };
+            toast.className = `${colors[type] || colors.info} text-white px-4 py-3 rounded shadow-2xl flex items-center gap-2 transition-all duration-300 transform text-xs font-bold`;
+            toast.innerHTML = `<i class="fas ${type==='error'?'fa-circle-xmark':'fa-circle-check'}"></i> <span>${message}</span>`;
             container.appendChild(toast);
-            setTimeout(() => { toast.classList.add('opacity-0', 'translate-y-2'); setTimeout(() => toast.remove(), 300); }, 3000);
+            setTimeout(() => { toast.classList.add('opacity-0', 'translate-y-2'); setTimeout(() => toast.remove(), 300); }, 3500);
         }
 
+        // Auth
         async function login() {
             token = document.getElementById('pat-token').value.trim();
-            if (!token) return showToast('Please enter a GitHub token', 'error');
+            if (!token) return showToast('Token required', 'error');
             validateAndInit();
         }
 
-        function logout() { sessionStorage.removeItem('gh_token'); location.reload(); }
+        function logout() { sessionStorage.clear(); location.reload(); }
 
         async function validateAndInit() {
             try {
-                const res = await fetch('https://api.github.com/user', { headers: { 'Authorization': `token ${token}` } });
-                if (!res.ok) throw new Error('Authentication failed.');
+                const res = await ghApi('/user');
+                if (!res.ok) throw new Error('Auth failed');
                 user = await res.json();
                 sessionStorage.setItem('gh_token', token);
-                document.getElementById('username').textContent = user.login;
+                document.getElementById('username').textContent = `@${user.login}`;
                 document.getElementById('user-info').classList.remove('hidden');
                 document.getElementById('auth-view').classList.add('hidden');
                 document.getElementById('dashboard-view').classList.remove('hidden');
                 fetchRepos();
-            } catch (err) { showToast(err.message, 'error'); }
+            } catch (err) { showToast(err.message, 'error'); sessionStorage.clear(); }
         }
 
+        // Repo Management
         async function fetchRepos() {
+            const listEl = document.getElementById('repo-list');
             try {
-                const res = await fetch(`https://api.github.com/user/repos?sort=updated&per_page=100`, { headers: { 'Authorization': `token ${token}` } });
+                const res = await ghApi('/user/repos?sort=updated&per_page=100');
                 repos = await res.json();
                 renderRepos(repos);
-            } catch (err) { document.getElementById('repo-list').innerHTML = `<div class="p-4 text-red-500">Error loading repos.</div>`; }
+            } catch (err) { listEl.innerHTML = `<div class="p-4 text-red-500 text-[10px]">Error loading repos.</div>`; }
         }
 
         function renderRepos(data) {
             document.getElementById('repo-list').innerHTML = data.map(repo => `
-                <div onclick="selectRepo('${repo.full_name}', '${repo.default_branch}')" class="p-2 text-xs rounded cursor-pointer hover:bg-[#1f2937] transition truncate ${currentRepo === repo.full_name ? 'bg-blue-900/30 border border-blue-500/50' : ''}">
-                    <i class="fas ${repo.private ? 'fa-lock text-gray-500' : 'fa-globe text-blue-400'} mr-2 w-4 text-center"></i>
+                <div onclick="selectRepo('${repo.full_name}', '${repo.default_branch}')" class="p-2 text-[11px] rounded cursor-pointer hover:bg-[#1f2937] transition truncate ${currentRepo === repo.full_name ? 'bg-blue-600/10 text-blue-400 border border-blue-500/20' : 'text-gray-400'}">
+                    <i class="fas ${repo.private ? 'fa-lock opacity-40' : 'fa-globe opacity-40'} mr-2 w-4 text-center"></i>
                     ${repo.name}
                 </div>
             `).join('');
@@ -453,49 +468,63 @@
         async function selectRepo(fullName, defaultBranch) {
             currentRepo = fullName;
             currentBranch = defaultBranch;
+            document.querySelectorAll('.current-branch-label').forEach(el => el.textContent = defaultBranch);
             document.getElementById('current-repo-name').textContent = fullName;
-            document.getElementById('repo-actions').classList.remove('hidden');
+            document.getElementById('repo-nav-tabs').classList.remove('hidden');
             document.getElementById('new-file-btn').classList.remove('hidden');
-            document.getElementById('repo-settings-trigger').classList.remove('hidden');
             document.getElementById('branch-selector-container').classList.remove('hidden');
             
             renderRepos(repos);
             await fetchBranches();
-            closeAllViews();
+            switchViewTab('explorer');
             fetchFiles('');
         }
 
         async function fetchBranches() {
             try {
-                const res = await fetch(`https://api.github.com/repos/${currentRepo}/branches`, { headers: { 'Authorization': `token ${token}` } });
-                branches = await res.json();
+                const res = await ghApi(`/repos/${currentRepo}/branches`);
+                const branches = await res.json();
                 const select = document.getElementById('branch-select');
                 select.innerHTML = branches.map(b => `<option value="${b.name}" ${b.name === currentBranch ? 'selected' : ''}>${b.name}</option>`).join('');
-                
-                // Also update Pages selector
                 document.getElementById('pages-branch').innerHTML = select.innerHTML;
             } catch (err) { showToast('Error fetching branches', 'error'); }
         }
 
         function switchBranch() {
             currentBranch = document.getElementById('branch-select').value;
-            showToast(`Switched to branch: ${currentBranch}`);
+            document.querySelectorAll('.current-branch-label').forEach(el => el.textContent = currentBranch);
+            showToast(`Branch: ${currentBranch}`);
             fetchFiles('');
         }
 
-        function closeAllViews() {
-            closePagesView();
-            closeFileView();
-            closeRepoSettings();
+        // View Tabbing
+        function switchViewTab(tab) {
+            const views = ['explorer', 'issues', 'releases', 'pages', 'repo-settings'];
+            views.forEach(v => document.getElementById(`view-${v}`).classList.add('hidden'));
+            document.getElementById(`view-${tab}`).classList.remove('hidden');
+
+            const tabBtns = ['explorer', 'issues', 'releases'];
+            tabBtns.forEach(t => {
+                const btn = document.getElementById(`vtab-${t}`);
+                if (btn) {
+                    btn.classList.toggle('bg-[#30363d]', t === tab);
+                    btn.classList.toggle('text-white', t === tab);
+                    btn.classList.toggle('text-gray-400', t !== tab);
+                }
+            });
+
+            if (tab === 'issues') fetchIssues();
+            if (tab === 'releases') fetchReleases();
+            if (tab === 'pages') showPagesSettings();
         }
 
+        // File Operations
         async function fetchFiles(path = '') {
             currentDir = path;
-            document.getElementById('pwa-target-dir').textContent = path ? `/${path}` : '/root';
             const explorer = document.getElementById('file-explorer');
-            explorer.innerHTML = '<div class="text-center py-8 text-xs text-gray-500"><i class="fas fa-spinner fa-spin mr-2"></i>Loading...</div>';
+            explorer.innerHTML = '<div class="text-center py-8 text-xs text-gray-500"><i class="fas fa-spinner fa-spin"></i></div>';
             try {
-                const res = await fetch(`https://api.github.com/repos/${currentRepo}/contents/${path}?ref=${currentBranch}`, { headers: { 'Authorization': `token ${token}` } });
+                const res = await ghApi(`/repos/${currentRepo}/contents/${path}?ref=${currentBranch}`);
                 const files = await res.json();
                 let html = '';
                 if (path !== '') {
@@ -516,130 +545,216 @@
                         </div>`;
                 });
                 explorer.innerHTML = html;
-            } catch (err) { explorer.innerHTML = '<div class="p-4 text-red-500 text-xs italic">Branch/Folder empty.</div>'; }
+            } catch (err) { explorer.innerHTML = '<div class="p-4 text-red-500 text-xs italic text-center">Folder empty.</div>'; }
         }
 
         async function openFile(path) {
-            closeAllViews();
             activeFilePath = path;
+            document.getElementById('empty-editor-state').classList.add('hidden');
             document.getElementById('file-details').classList.remove('hidden');
-            document.getElementById('view-file-name').textContent = path.split('/').pop();
+            document.getElementById('view-file-name').textContent = path;
             document.getElementById('raw-file-btn').onclick = () => window.open(`https://raw.githubusercontent.com/${currentRepo}/${currentBranch}/${path}`, '_blank');
             
-            // Set language mode
             const modelist = ace.require("ace/ext/modelist");
             const mode = modelist.getModeForPath(path).mode;
             editor.session.setMode(mode);
 
-            // Toggle Preview tab for Markdown
             const isMarkdown = path.endsWith('.md');
-            document.getElementById('tab-preview').classList.toggle('hidden', !isMarkdown);
+            document.getElementById('etab-preview').classList.toggle('hidden', !isMarkdown);
 
             try {
-                const res = await fetch(`https://api.github.com/repos/${currentRepo}/contents/${path}?ref=${currentBranch}`, { headers: { 'Authorization': `token ${token}` } });
+                const res = await ghApi(`/repos/${currentRepo}/contents/${path}?ref=${currentBranch}`);
                 const data = await res.json();
                 currentFileSha = data.sha;
                 currentFileData = decodeURIComponent(escape(atob(data.content.replace(/\s/g, ''))));
                 editor.setValue(currentFileData, -1);
-                switchTab('edit');
+                switchEditorTab('edit');
                 fetchHistory(path);
+                document.getElementById('file-stats').textContent = `${currentFileData.split('\n').length} lines | ${currentFileData.length} chars`;
             } catch (err) { showToast('Error opening file', 'error'); }
+        }
+
+        function switchEditorTab(tab) {
+            const tabs = ['edit', 'diff', 'preview', 'history'];
+            tabs.forEach(t => {
+                const el = document.getElementById(`${t}-container`);
+                if (el) el.classList.add('hidden');
+                const btn = document.getElementById(`etab-${t}`);
+                if (btn) btn.classList.remove('tab-active');
+            });
+            document.getElementById(`${tab}-container`).classList.remove('hidden');
+            document.getElementById(`etab-${tab}`).classList.add('tab-active');
+
+            if (tab === 'preview') document.getElementById('preview-container').innerHTML = marked.parse(editor.getValue());
+            if (tab === 'diff') generateDiff();
+        }
+
+        // Simple Line-by-Line Diff
+        function generateDiff() {
+            const current = editor.getValue().split('\n');
+            const original = currentFileData.split('\n');
+            const diffView = document.getElementById('diff-view');
+            
+            let html = '';
+            // Very basic diffing logic for visual feedback
+            const max = Math.max(current.length, original.length);
+            for (let i = 0; i < max; i++) {
+                const oldLine = original[i] || '';
+                const newLine = current[i] || '';
+                
+                if (oldLine === newLine) {
+                    html += `<div>  ${escapeHtml(newLine)}</div>`;
+                } else {
+                    if (i < original.length) html += `<div class="diff-removed">- ${escapeHtml(oldLine)}</div>`;
+                    if (i < current.length) html += `<div class="diff-added">+ ${escapeHtml(newLine)}</div>`;
+                }
+            }
+            diffView.innerHTML = html || '<div class="text-gray-500 italic">No changes detected</div>';
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
         }
 
         async function saveChanges() {
             const content = editor.getValue();
             const message = document.getElementById('commit-msg').value || `Update ${activeFilePath}`;
             try {
-                const res = await fetch(`https://api.github.com/repos/${currentRepo}/contents/${activeFilePath}`, {
+                const res = await ghApi(`/repos/${currentRepo}/contents/${activeFilePath}`, {
                     method: 'PUT',
-                    headers: { 'Authorization': `token ${token}`, 'Content-Type': 'application/json' },
                     body: JSON.stringify({ message, content: btoa(unescape(encodeURIComponent(content))), sha: currentFileSha, branch: currentBranch })
                 });
-                if (!res.ok) throw new Error((await res.json()).message);
-                showToast('Changes committed successfully', 'success');
+                if (!res.ok) throw new Error('Commit failed');
+                showToast('Changes committed!', 'success');
                 document.getElementById('commit-msg').value = '';
                 openFile(activeFilePath);
             } catch (err) { showToast(err.message, 'error'); }
         }
 
-        function switchTab(tab) {
-            document.getElementById('content-edit').classList.toggle('hidden', tab !== 'edit');
-            document.getElementById('content-history').classList.toggle('hidden', tab !== 'history');
-            document.getElementById('content-preview').classList.toggle('hidden', tab !== 'preview');
-            
-            document.getElementById('tab-edit').className = tab === 'edit' ? 'px-4 py-2 border-b-2 border-blue-500 text-blue-400 font-medium text-sm' : 'px-4 py-2 text-gray-400 text-sm';
-            document.getElementById('tab-history').className = tab === 'history' ? 'px-4 py-2 border-b-2 border-blue-500 text-blue-400 font-medium text-sm' : 'px-4 py-2 text-gray-400 text-sm';
-            document.getElementById('tab-preview').className = tab === 'preview' ? 'px-4 py-2 border-b-2 border-blue-500 text-blue-400 font-medium text-sm' : 'px-4 py-2 text-gray-400 text-sm';
-
-            if (tab === 'preview') {
-                document.getElementById('markdown-preview').innerHTML = marked.parse(editor.getValue());
-            }
+        // Issues
+        async function fetchIssues() {
+            const list = document.getElementById('issue-list');
+            list.innerHTML = '<div class="py-10 text-center"><i class="fas fa-spinner fa-spin"></i></div>';
+            try {
+                const res = await ghApi(`/repos/${currentRepo}/issues?state=open&sort=created`);
+                const issues = await res.json();
+                list.innerHTML = issues.length ? issues.map(issue => `
+                    <div class="card p-4 hover:border-blue-500/40 transition">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <div class="text-sm font-bold flex items-center gap-2">
+                                    <i class="fas fa-exclamation-circle text-green-500"></i>
+                                    ${issue.title}
+                                    ${issue.labels.map(l => `<span class="text-[9px] px-1.5 rounded-full border" style="border-color:#${l.color}; color:#${l.color}">${l.name}</span>`).join('')}
+                                </div>
+                                <div class="text-[10px] text-gray-500 mt-1">#${issue.number} opened on ${new Date(issue.created_at).toLocaleDateString()} by ${issue.user.login}</div>
+                            </div>
+                            <button onclick="window.open('${issue.html_url}', '_blank')" class="text-[10px] text-gray-500 hover:text-white underline">View on GitHub</button>
+                        </div>
+                    </div>
+                `).join('') : '<div class="text-center py-10 text-gray-600">No open issues found.</div>';
+            } catch (err) { list.innerHTML = 'Error loading issues'; }
         }
 
-        // --- Standard Boilerplate Functions (Renaming, Deleting, Pages) kept from previous version ---
+        async function createIssue() {
+            const title = document.getElementById('new-issue-title').value.trim();
+            const body = document.getElementById('new-issue-body').value.trim();
+            if (!title) return;
+            try {
+                const res = await ghApi(`/repos/${currentRepo}/issues`, {
+                    method: 'POST',
+                    body: JSON.stringify({ title, body })
+                });
+                if (res.ok) { showToast('Issue created!', 'success'); hideModal('new-issue-modal'); fetchIssues(); }
+            } catch (err) { showToast('Failed to create issue', 'error'); }
+        }
+
+        // Releases
+        async function fetchReleases() {
+            const list = document.getElementById('release-list');
+            list.innerHTML = '<div class="py-10 text-center"><i class="fas fa-spinner fa-spin"></i></div>';
+            try {
+                const res = await ghApi(`/repos/${currentRepo}/releases`);
+                const releases = await res.json();
+                list.innerHTML = releases.length ? releases.map(rel => `
+                    <div class="card p-5">
+                        <div class="flex justify-between items-start mb-2">
+                            <div>
+                                <span class="bg-purple-900/30 text-purple-400 text-[10px] px-2 py-0.5 rounded-full border border-purple-500/30 font-bold">${rel.tag_name}</span>
+                                <h4 class="text-lg font-bold mt-1">${rel.name || rel.tag_name}</h4>
+                            </div>
+                            <span class="text-[10px] text-gray-500">${new Date(rel.published_at).toLocaleDateString()}</span>
+                        </div>
+                        <div class="text-xs text-gray-400 prose prose-invert prose-sm max-w-none">${marked.parse(rel.body || '')}</div>
+                    </div>
+                `).join('') : '<div class="text-center py-10 text-gray-600">No releases yet.</div>';
+            } catch (err) { list.innerHTML = 'Error loading releases'; }
+        }
+
+        // Global Search
+        function toggleGlobalSearch() {
+            const overlay = document.getElementById('global-search-overlay');
+            const isHidden = overlay.classList.contains('hidden');
+            overlay.classList.toggle('hidden');
+            if (isHidden) document.getElementById('global-search-input').focus();
+        }
+
+        async function executeGlobalSearch() {
+            const q = document.getElementById('global-search-input').value.trim();
+            const resultsEl = document.getElementById('search-results');
+            if (!q) return;
+            resultsEl.innerHTML = '<div class="text-center py-10"><i class="fas fa-spinner fa-spin"></i> Searching GitHub Index...</div>';
+            
+            try {
+                // GitHub Search API requires 'repo:owner/name' for specific repo search
+                const res = await ghApi(`/search/code?q=${encodeURIComponent(q)}+repo:${currentRepo}`);
+                const data = await res.json();
+                
+                if (data.items.length === 0) {
+                    resultsEl.innerHTML = '<p class="text-center text-gray-500 italic py-10">No results found in this repository.</p>';
+                } else {
+                    resultsEl.innerHTML = data.items.map(item => `
+                        <div onclick="openFile('${item.path}'); toggleGlobalSearch();" class="card p-3 cursor-pointer hover:border-blue-500/40 transition group">
+                            <div class="flex justify-between items-center">
+                                <span class="text-blue-400 font-bold truncate">${item.path}</span>
+                                <i class="fas fa-chevron-right text-[10px] opacity-0 group-hover:opacity-100 transition"></i>
+                            </div>
+                        </div>
+                    `).join('');
+                }
+            } catch (err) { resultsEl.innerHTML = '<p class="text-red-500 text-center">Search failed. Note: Search index might take time to update.</p>'; }
+        }
+
+        // Standard helpers
         function showModal(id) { document.getElementById(id).classList.remove('hidden'); document.getElementById(id).style.display = 'flex'; }
         function hideModal(id) { document.getElementById(id).classList.add('hidden'); document.getElementById(id).style.display = 'none'; }
+        function closeFileView() { document.getElementById('file-details').classList.add('hidden'); document.getElementById('empty-editor-state').classList.remove('hidden'); }
+        function showPagesSettings() { switchViewTab('pages'); }
+        function showRepoSettings() { switchViewTab('repo-settings'); document.getElementById('rename-repo-input').value = currentRepo.split('/').pop(); }
+        function closePagesView() { switchViewTab('explorer'); }
+        function closeRepoSettings() { switchViewTab('explorer'); }
 
-        async function createFile(filename = null, content = '', msg = 'Create new file') {
-            const name = filename || document.getElementById('new-filename').value.trim();
-            if (!name) return showToast('Filename required', 'error');
-            const fullPath = currentDir ? `${currentDir}/${name}` : name;
+        async function createFile() {
+            const name = document.getElementById('new-filename').value.trim();
+            if (!name) return;
             try {
-                let sha = null;
-                const check = await fetch(`https://api.github.com/repos/${currentRepo}/contents/${fullPath}?ref=${currentBranch}`, { headers: { 'Authorization': `token ${token}` } });
-                if (check.ok) { const existing = await check.json(); sha = existing.sha; if (filename === null) return showToast('File exists', 'error'); }
-                const res = await fetch(`https://api.github.com/repos/${currentRepo}/contents/${fullPath}`, {
+                const res = await ghApi(`/repos/${currentRepo}/contents/${name}`, {
                     method: 'PUT',
-                    headers: { 'Authorization': `token ${token}`, 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ message: msg, content: btoa(unescape(encodeURIComponent(content))), sha: sha, branch: currentBranch })
+                    body: JSON.stringify({ message: `Create ${name}`, content: '', branch: currentBranch })
                 });
-                if (!res.ok) throw new Error((await res.json()).message);
-                showToast(`Success: ${name}`, 'success');
-                hideModal('new-file-modal');
-                document.getElementById('new-filename').value = '';
-                fetchFiles(currentDir);
-            } catch (err) { showToast(err.message, 'error'); }
-        }
-
-        function triggerRename(path) {
-            pendingRenamePath = path;
-            document.getElementById('rename-filename').value = path.split('/').pop();
-            showModal('rename-file-modal');
-        }
-
-        async function renameFile() {
-            const newName = document.getElementById('rename-filename').value.trim();
-            if (!newName) return;
-            const oldPath = pendingRenamePath;
-            const dir = oldPath.split('/').slice(0, -1).join('/');
-            const newPath = dir ? `${dir}/${newName}` : newName;
-            try {
-                const getRes = await fetch(`https://api.github.com/repos/${currentRepo}/contents/${oldPath}?ref=${currentBranch}`, { headers: { 'Authorization': `token ${token}` } });
-                const fileData = await getRes.json();
-                await fetch(`https://api.github.com/repos/${currentRepo}/contents/${newPath}`, {
-                    method: 'PUT',
-                    headers: { 'Authorization': `token ${token}`, 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ message: `Rename to ${newPath}`, content: fileData.content, branch: currentBranch })
-                });
-                await fetch(`https://api.github.com/repos/${currentRepo}/contents/${oldPath}`, {
-                    method: 'DELETE',
-                    headers: { 'Authorization': `token ${token}`, 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ message: `Rename cleanup`, sha: fileData.sha, branch: currentBranch })
-                });
-                showToast('Renamed', 'success');
-                hideModal('rename-file-modal');
-                fetchFiles(currentDir);
-            } catch (err) { showToast(err.message, 'error'); }
+                if (res.ok) { showToast('File created!', 'success'); hideModal('new-file-modal'); fetchFiles(currentDir); }
+            } catch (err) { showToast('Creation failed', 'error'); }
         }
 
         async function deleteFile(path) {
             if (!confirm(`Delete ${path}?`)) return;
             try {
-                const getRes = await fetch(`https://api.github.com/repos/${currentRepo}/contents/${path}?ref=${currentBranch}`, { headers: { 'Authorization': `token ${token}` } });
+                const getRes = await ghApi(`/repos/${currentRepo}/contents/${path}?ref=${currentBranch}`);
                 const fileData = await getRes.json();
-                await fetch(`https://api.github.com/repos/${currentRepo}/contents/${path}`, {
+                await ghApi(`/repos/${currentRepo}/contents/${path}`, {
                     method: 'DELETE',
-                    headers: { 'Authorization': `token ${token}`, 'Content-Type': 'application/json' },
                     body: JSON.stringify({ message: `Delete ${path}`, sha: fileData.sha, branch: currentBranch })
                 });
                 showToast('Deleted', 'success'); fetchFiles(currentDir);
@@ -647,56 +762,72 @@
         }
 
         async function fetchHistory(path) {
-            const list = document.getElementById('content-history');
+            const list = document.getElementById('history-container');
             list.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
             try {
-                const res = await fetch(`https://api.github.com/repos/${currentRepo}/commits?path=${path}&sha=${currentBranch}`, { headers: { 'Authorization': `token ${token}` } });
+                const res = await ghApi(`/repos/${currentRepo}/commits?path=${path}&sha=${currentBranch}`);
                 const commits = await res.json();
                 list.innerHTML = commits.map(c => `
                     <div class="card p-3 flex justify-between items-center text-xs">
-                        <div>
-                            <div class="font-bold">${c.commit.message}</div>
-                            <div class="text-gray-500">${new Date(c.commit.author.date).toLocaleString()}</div>
+                        <div class="truncate pr-4">
+                            <div class="font-bold truncate">${c.commit.message}</div>
+                            <div class="text-[10px] text-gray-500">${new Date(c.commit.author.date).toLocaleString()}</div>
                         </div>
-                        <button onclick="requestRestore('${c.sha}', '${c.commit.author.date}')" class="bg-blue-900/40 text-blue-400 border border-blue-500/30 px-2 py-1 rounded hover:bg-blue-500 hover:text-white transition">Restore</button>
+                        <button onclick="requestRestore('${c.sha}', '${c.commit.author.date}')" class="shrink-0 bg-blue-900/30 text-blue-400 border border-blue-500/30 px-2 py-1 rounded hover:bg-blue-600 hover:text-white transition">Restore</button>
                     </div>
                 `).join('');
             } catch (err) { list.innerHTML = 'Error loading history'; }
         }
 
         function requestRestore(sha, date) {
-            document.getElementById('restore-filename').textContent = activeFilePath.split('/').pop();
-            document.getElementById('restore-commit-msg').value = `Restore version from ${new Date(date).toLocaleDateString()}`;
+            document.getElementById('restore-filename').textContent = activeFilePath;
+            document.getElementById('restore-commit-msg').value = `Restore from ${new Date(date).toLocaleDateString()}`;
             showModal('restore-modal');
             document.getElementById('confirm-restore-btn').onclick = async () => {
-                const res = await fetch(`https://api.github.com/repos/${currentRepo}/contents/${activeFilePath}?ref=${sha}`, { headers: { 'Authorization': `token ${token}` } });
+                const res = await ghApi(`/repos/${currentRepo}/contents/${activeFilePath}?ref=${sha}`);
                 const data = await res.json();
                 const content = decodeURIComponent(escape(atob(data.content.replace(/\s/g, ''))));
-                await fetch(`https://api.github.com/repos/${currentRepo}/contents/${activeFilePath}`, {
+                await ghApi(`/repos/${currentRepo}/contents/${activeFilePath}`, {
                     method: 'PUT',
-                    headers: { 'Authorization': `token ${token}`, 'Content-Type': 'application/json' },
                     body: JSON.stringify({ message: document.getElementById('restore-commit-msg').value, content: btoa(unescape(encodeURIComponent(content))), sha: currentFileSha, branch: currentBranch })
                 });
                 showToast('Restored!', 'success'); openFile(activeFilePath); hideModal('restore-modal');
             };
         }
 
-        // Repo Settings & Pages (Simplified for space)
-        async function showPagesSettings() { closeAllViews(); document.getElementById('pages-settings').classList.remove('hidden'); showToast('Fetching Pages...', 'info'); }
-        async function savePagesConfig() { showToast('Updating pages...', 'info'); /* Logic same as previous */ }
-        function closePagesView() { document.getElementById('pages-settings').classList.add('hidden'); }
-        function closeFileView() { document.getElementById('file-details').classList.add('hidden'); }
-        function showRepoSettings() { closeAllViews(); document.getElementById('repo-settings-view').classList.remove('hidden'); }
-        function closeRepoSettings() { document.getElementById('repo-settings-view').classList.add('hidden'); }
-
-        function generatePWAFile(type) {
+        async function generatePWAFile(type) {
             const appName = currentRepo.split('/').pop();
-            let fn = type === 'manifest' ? 'manifest.json' : (type === 'sw' ? 'sw.js' : 'index.html');
+            let fn = type === 'manifest' ? 'manifest.json' : 'sw.js';
             let content = '';
-            if (type === 'manifest') content = JSON.stringify({ name: appName, short_name: appName, start_url: "./index.html", display: "standalone" }, null, 4);
-            else if (type === 'sw') content = `const CACHE = '${appName}-v1';\nself.addEventListener('fetch', e => e.respondWith(fetch(e.request)));`;
-            else content = `<!DOCTYPE html><html><head><link rel="manifest" href="manifest.json"></head><body><h1>${appName}</h1></body></html>`;
-            createFile(fn, content, `Init PWA ${fn}`);
+            if (type === 'manifest') content = JSON.stringify({ name: appName, short_name: appName, start_url: "./index.html", display: "standalone", theme_color: "#0d1117" }, null, 4);
+            else content = `const CACHE = '${appName}-v1';\nself.addEventListener('fetch', e => e.respondWith(fetch(e.request)));`;
+            
+            // Check current folder
+            const fullPath = currentDir ? `${currentDir}/${fn}` : fn;
+            try {
+                await ghApi(`/repos/${currentRepo}/contents/${fullPath}`, {
+                    method: 'PUT',
+                    body: JSON.stringify({ message: `Generate PWA ${fn}`, content: btoa(content), branch: currentBranch })
+                });
+                showToast(`${fn} created in current directory`, 'success'); fetchFiles(currentDir);
+            } catch (err) { showToast('PWA generation failed', 'error'); }
+        }
+
+        async function renameRepository() {
+            const newName = document.getElementById('rename-repo-input').value;
+            try {
+                const res = await ghApi(`/repos/${currentRepo}`, {
+                    method: 'PATCH',
+                    body: JSON.stringify({ name: newName })
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    currentRepo = data.full_name;
+                    showToast('Repo renamed');
+                    fetchRepos();
+                    document.getElementById('current-repo-name').textContent = currentRepo;
+                }
+            } catch (err) { showToast('Rename failed', 'error'); }
         }
 
         function promptDeleteRepo() {
@@ -704,26 +835,22 @@
             document.getElementById('delete-repo-confirm-input').oninput = (e) => {
                 const btn = document.getElementById('final-delete-btn');
                 btn.disabled = e.target.value !== currentRepo;
-                btn.className = btn.disabled ? "w-full bg-red-600 py-2 rounded text-sm font-bold text-white opacity-50 cursor-not-allowed" : "w-full bg-red-600 py-2 rounded text-sm font-bold text-white cursor-pointer";
+                btn.classList.toggle('opacity-50', btn.disabled);
             };
             showModal('delete-repo-modal');
         }
 
         async function deleteRepository() {
-            const res = await fetch(`https://api.github.com/repos/${currentRepo}`, { method: 'DELETE', headers: { 'Authorization': `token ${token}` } });
-            if (res.ok) location.reload(); else showToast('Delete failed', 'error');
+            const res = await ghApi(`/repos/${currentRepo}`, { method: 'DELETE' });
+            if (res.status === 204) location.reload();
         }
 
         async function createRepo() {
             const name = document.getElementById('new-repo-name').value;
-            const res = await fetch('https://api.github.com/user/repos', { method: 'POST', headers: { 'Authorization': `token ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ name, auto_init: true }) });
-            if (res.ok) { hideModal('create-repo-modal'); fetchRepos(); } else showToast('Error creating repo', 'error');
-        }
-
-        async function renameRepository() {
-            const newName = document.getElementById('rename-repo-input').value;
-            const res = await fetch(`https://api.github.com/repos/${currentRepo}`, { method: 'PATCH', headers: { 'Authorization': `token ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ name: newName }) });
-            if (res.ok) { const data = await res.json(); currentRepo = data.full_name; fetchRepos(); showRepoSettings(); }
+            const description = document.getElementById('new-repo-desc').value;
+            const private = document.getElementById('new-repo-private').checked;
+            const res = await ghApi('/user/repos', { method: 'POST', body: JSON.stringify({ name, description, private, auto_init: true }) });
+            if (res.ok) { hideModal('create-repo-modal'); fetchRepos(); }
         }
     </script>
 </body>
