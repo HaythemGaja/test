@@ -1,0 +1,16 @@
+{
+    "name": "GitHub-Repository-Manager-PWA",
+    "short_name": "GitHub-Repository-Manager-PWA",
+    "start_url": "./index.html",
+    "display": "standalone",
+    "background_color": "#0d1117",
+    "theme_color": "#58a6ff",
+    "description": "Hosted PWA via GitRestore",
+    "icons": [
+        {
+            "src": "https://cdn-icons-png.flaticon.com/512/25/25231.png",
+            "sizes": "512x512",
+            "type": "image/png"
+        }
+    ]
+}
