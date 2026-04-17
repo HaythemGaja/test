@@ -107,7 +107,7 @@
         <!-- Auth View -->
         <div id="auth-view" class="flex-1 flex flex-col items-center justify-center p-6 bg-[#0d1117]">
             <div class="card p-8 max-w-md w-full text-center shadow-2xl border-blue-500/20">
-                <i class="fas fa-code-branch text-4xl mb-4 text-blue-500"></i>
+                <i class="fas fa-terminal text-4xl mb-4 text-blue-500"></i>
                 <h2 class="text-2xl font-bold mb-2">Studio Login</h2>
                 <input type="password" id="pat-token" placeholder="Personal Access Token" class="w-full bg-[#0d1117] border border-[#30363d] rounded p-3 mb-4 focus:border-blue-500 outline-none">
                 <button onclick="login()" class="btn-primary w-full py-3 rounded font-bold text-white">Initialize Workspace</button>
@@ -220,7 +220,6 @@
                         </div>
                     </div>
 
-                    <!-- Issues View -->
                     <div id="view-issues" class="hidden flex-1 overflow-y-auto p-4 bg-[#0d1117]">
                         <div id="issue-list" class="space-y-2"></div>
                     </div>
@@ -257,7 +256,7 @@
             <h3 class="text-sm font-bold mb-4 uppercase tracking-tighter">New Repository</h3>
             <input type="text" id="new-repo-name" placeholder="Repository name" class="w-full bg-[#0d1117] border border-[#30363d] rounded p-2 text-xs mb-4 outline-none">
             <div class="flex justify-end gap-3">
-                <button onclick="hideModal('create-repo-modal')" class="text-xs text-gray-500">Cancel</button>
+                <button onclick="hideModal('create-repo-modal')" class="text-gray-500 text-sm">Cancel</button>
                 <button onclick="createRepo()" class="btn-primary px-4 py-1.5 rounded text-[10px] font-bold text-white">Create</button>
             </div>
         </div>
@@ -274,6 +273,15 @@
         </div>
     </div>
 
+    <div id="delete-repo-modal" class="fixed inset-0 modal-overlay hidden items-center justify-center p-4 z-[120]">
+        <div class="card p-5 max-w-sm w-full border-red-600">
+            <h3 class="text-sm font-bold mb-2 text-red-500 uppercase">Confirm Delete</h3>
+            <p class="text-[10px] mb-4 text-gray-400">Type <strong class="text-white" id="delete-confirm-text"></strong></p>
+            <input type="text" id="delete-repo-confirm-input" class="w-full bg-red-900/10 border border-red-900/50 rounded p-2 text-xs mb-4 outline-none">
+            <button onclick="deleteRepository()" id="final-delete-btn" class="w-full bg-red-600 py-2 rounded text-[10px] font-bold text-white opacity-50" disabled>DELETE PERMANENTLY</button>
+        </div>
+    </div>
+
     <div id="toast-container" class="fixed bottom-4 left-4 right-4 sm:left-auto sm:right-4 z-[200] flex flex-col gap-2"></div>
 
     <script>
@@ -284,7 +292,7 @@
         let currentDir = ''; 
         let activeFilePath = ''; 
         let currentFileSha = '';
-        let currentFileData = ''; // The content currently on the branch
+        let currentFileData = ''; 
         let currentBranch = '';
         let editor;
         let isEditMode = false;
@@ -355,7 +363,7 @@
             const btn = document.getElementById('edit-toggle-btn');
             const section = document.getElementById('commit-section');
             if (isEditMode) {
-                btn.textContent = 'View Mode';
+                btn.textContent = 'Exit Edit';
                 btn.classList.replace('bg-blue-600', 'bg-gray-600');
                 section.classList.remove('hidden');
                 editor.focus();
@@ -565,6 +573,20 @@
             } catch (err) { showToast('History Diff Failed', 'error'); }
         }
 
+        async function runHistoricalVersion(sha) {
+            try {
+                showToast('Preparing preview...');
+                const res = await ghApi(`/repos/${currentRepo}/contents/${activeFilePath}?ref=${sha}`);
+                const data = await res.json();
+                const content = decodeBase64(data.content || "");
+                
+                // Create a data blob for the new tab
+                const blob = new Blob([content], { type: 'text/html' });
+                const url = URL.createObjectURL(blob);
+                window.open(url, '_blank');
+            } catch (err) { showToast('Execution Failed', 'error'); }
+        }
+
         function renderDiff(base, modified) {
             const baseLines = base.split('\n');
             const modLines = modified.split('\n');
@@ -649,9 +671,10 @@
                         <div class="font-bold text-gray-200">${c.commit.message}</div>
                         <div class="text-gray-500">${new Date(c.commit.author.date).toLocaleString()}</div>
                     </div>
-                    <div class="flex gap-2">
-                        <button onclick="diffCommit('${c.sha}')" class="flex-1 bg-blue-600/20 text-blue-400 py-1 rounded font-bold uppercase tracking-widest border border-blue-500/30">DIFF</button>
-                        <button onclick="requestRestore('${c.sha}')" class="flex-1 bg-green-600/20 text-green-500 py-1 rounded font-bold uppercase tracking-widest border border-green-500/30">RESTORE</button>
+                    <div class="flex gap-1">
+                        <button onclick="diffCommit('${c.sha}')" class="flex-1 bg-blue-600/20 text-blue-400 py-1.5 rounded font-bold uppercase tracking-widest border border-blue-500/30">DIFF</button>
+                        <button onclick="runHistoricalVersion('${c.sha}')" class="flex-1 bg-purple-600/20 text-purple-400 py-1.5 rounded font-bold uppercase tracking-widest border border-purple-500/30">RUN</button>
+                        <button onclick="requestRestore('${c.sha}')" class="flex-1 bg-green-600/20 text-green-500 py-1.5 rounded font-bold uppercase tracking-widest border border-green-500/30">RESTORE</button>
                     </div>
                 </div>
             `).join('') || 'No history found.';
@@ -696,12 +719,17 @@
             if (res.status === 204) location.reload();
         }
 
-        async function createRepo() {
-            const name = document.getElementById('new-repo-name').value.trim();
-            if(!name) return;
-            const res = await ghApi('/user/repos', { method: 'POST', body: JSON.stringify({ name, auto_init: true }) });
-            if (res.ok) { hideModal('create-repo-modal'); fetchRepos(); }
+        async function generatePWAFile(type) {
+            const name = type === 'manifest' ? 'manifest.json' : 'sw.js';
+            const content = type === 'manifest' ? '{"name":"App"}' : 'self.addEventListener("fetch",()=>{})';
+            await ghApi(`/repos/${currentRepo}/contents/${currentDir?currentDir+'/':''}${name}`, { method: 'PUT', body: JSON.stringify({ message: `Init PWA ${name}`, content: btoa(content), branch: currentBranch }) });
+            showToast('Generated!', 'success'); fetchFiles(currentDir);
         }
+
+        function showPagesSettings() { switchViewTab('pages'); }
+        function showRepoSettings() { switchViewTab('repo-settings'); }
+        async function savePagesConfig() { showToast('Pages not configured in this turn', 'info'); }
+
     </script>
 </body>
 </html>
